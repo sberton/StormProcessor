@@ -37,7 +37,7 @@ public class BoltTransactionStats extends BaseWindowedBolt {
 		for(Tuple input : inputWindow.get()) {
 			anchors.add(input);
 			/*input bolt is transaction-parsing*/
-			if(input.getSourceComponent().equals("transaction-parsing")) {
+			if(input.getSourceComponent().equals("transactionParsing")) {
 				String transaction_hash = (String)input.getStringByField("transaction_hash");
 				tuple_transactions.put(transaction_hash, new HashMap<String, Object>());
 				tuple_transactions.get(transaction_hash).put("transaction_total_amount", input.getDoubleByField("transaction_total_amount"));

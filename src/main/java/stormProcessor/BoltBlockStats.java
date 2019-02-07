@@ -26,7 +26,7 @@ public class BoltBlockStats extends BaseRichBolt {
 	public void execute(Tuple input) {
 		
 		//HashMap<String, HashMap<String, Object>> tuple_blocks = new HashMap<String, HashMap<String, Object>> ();
-		if(input.getSourceComponent().equals("block-parsing")) {
+		if(input.getSourceComponent().equals("blockParsing")) {
 				String block_hash=input.getStringByField("block_hash");
 				Double block_reward = (Double) input.getDoubleByField("block_reward");
 				Double block_reward_euro = rate * block_reward ;

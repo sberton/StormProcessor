@@ -2,6 +2,10 @@ package stormProcessor;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
@@ -29,6 +33,19 @@ public class App
 	
     public static void main( String[] args ) throws AlreadyAliveException, InvalidTopologyException, AuthorizationException 
     {
+    	Properties appProps = new Properties();
+        //String rootPath = Thread.currentThread().getContextClassLoader().getResource("").getPath();
+        String appConfigPath = "/home/serial/workspace/projet3/stormProcessor/conf/application.properties";
+        try {
+			appProps.load(new FileInputStream(appConfigPath));
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
     	Map<String,String> params = new HashMap<String,String>();
     	params.put("Content-Type", "application/json; charset=UTF-8");
     	EsConfig esConfig = new EsConfig("http://192.168.0.24:9200");
@@ -48,24 +65,31 @@ public class App
     	KafkaSpoutConfig<String, String> spoutConfigTransaction = spoutConfigBuilderTransaction.build();
     	KafkaSpoutConfig<String, String> spoutConfigRate = spoutConfigBuilderRate.build();
     	KafkaSpoutConfig<String, String> spoutConfigBlock = spoutConfigBuilderBlock.build();
-    	builder.setSpout("transaction", new KafkaSpout<String, String>(spoutConfigTransaction));
-    	builder.setSpout("rate", new KafkaSpout<String, String>(spoutConfigRate));
-    	builder.setSpout("block", new KafkaSpout<String, String>(spoutConfigBlock));
-    	builder.setBolt("transaction-parsing", new BoltTransactionParser(),2).shuffleGrouping("transaction");
-    	builder.setBolt("rate-parsing", new BoltRateParser()).shuffleGrouping("rate");
-    	builder.setBolt("block-parsing", new BoltBlockParser()).shuffleGrouping("block");
-    	builder.setBolt("block-stats", new BoltBlockStats())
-    						.allGrouping("rate-parsing")	
-    						.shuffleGrouping("block-parsing");
-    	builder.setBolt("transaction-stats", new BoltTransactionStats().withTumblingWindow(BaseWindowedBolt.Duration.minutes(2)),1)
-    						.shuffleGrouping("rate-parsing")				
-    						.shuffleGrouping("transaction-parsing");
-    	builder.setBolt("Es-formater", new BoltEsFormatter(),2)
-    						.shuffleGrouping("transaction-stats")
-    						.shuffleGrouping("block-stats")
-    						.shuffleGrouping("rate-parsing");	    	
+    	/*Spouts implementation*/
+    	builder.setSpout("transaction", new KafkaSpout<String, String>(spoutConfigTransaction),Integer.parseInt(appProps.getProperty("transaction.paralellism")));
+    	builder.setSpout("rate", new KafkaSpout<String, String>(spoutConfigRate),Integer.parseInt(appProps.getProperty("rate.paralellism")));
+    	builder.setSpout("block", new KafkaSpout<String, String>(spoutConfigBlock),Integer.parseInt(appProps.getProperty("block.paralellism")));
     	
-    	builder.setBolt("es-insert", new EsIndexBolt(esConfig, tupleMapper),2).shuffleGrouping("Es-formater");
+		/*Bolts implementation*/
+    	builder.setBolt("transactionParsing", new BoltTransactionParser(),Integer.parseInt(appProps.getProperty("transactionParsing.paralellism")))
+    						.shuffleGrouping("transaction");
+    	builder.setBolt("rateParsing", new BoltRateParser(),Integer.parseInt(appProps.getProperty("rateParsing.paralellism")))
+    						.shuffleGrouping("rate");
+    	builder.setBolt("blockParsing", new BoltBlockParser(),Integer.parseInt(appProps.getProperty("blockParsing.paralellism")))
+    						.shuffleGrouping("block");
+    	builder.setBolt("blockStats", new BoltBlockStats(),Integer.parseInt(appProps.getProperty("blockStats.paralellism")))
+    						.allGrouping("rateParsing")	
+    						.shuffleGrouping("blockParsing");
+    	builder.setBolt("transactionStats", new BoltTransactionStats().withTumblingWindow(BaseWindowedBolt.Duration.minutes(5)),Integer.parseInt(appProps.getProperty("transactionStats.paralellism")))
+    						.shuffleGrouping("rateParsing")				
+    						.shuffleGrouping("transactionParsing");
+    	builder.setBolt("EsFormater", new BoltEsFormatter(),Integer.parseInt(appProps.getProperty("EsFormater.paralellism")))
+    						.shuffleGrouping("transactionStats")
+    						.shuffleGrouping("blockStats")
+    						.shuffleGrouping("rateParsing");	    	
+    	
+    	builder.setBolt("esInsert", new EsIndexBolt(esConfig, tupleMapper),Integer.parseInt(appProps.getProperty("esInsert.paralellism")))
+    						.shuffleGrouping("EsFormater");
 
     	StormTopology topology = builder.createTopology();
 
@@ -73,8 +97,8 @@ public class App
     	/*timeout had to be greater than sliding windows duration*/
 		config.setMessageTimeoutSecs(4000);
 		//config.setDebug(true);
-		config.setNumWorkers(2);
-		config.setMaxTaskParallelism(12);
+		config.setNumWorkers(Integer.parseInt(appProps.getProperty("num.workers")));
+		//config.setMaxTaskParallelism(12);
 
     	if(args.length > 0 && args[0].equals("remote")) {
     		StormSubmitter.submitTopology(TOPOLOGY_NAME, config, topology);

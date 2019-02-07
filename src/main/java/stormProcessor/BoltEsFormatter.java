@@ -43,7 +43,7 @@ private OutputCollector outputCollector;
 		String index="";
 		String type="";
 		String id=UUID.randomUUID().toString();
-		if(input.getSourceComponent().equals("transaction-stats")) {
+		if(input.getSourceComponent().equals("transactionStats")) {
 			document.put("transaction_total_amount", input.getDoubleByField("transaction_total_amount"));
 			document.put("transaction_total_amount_euro", input.getDoubleByField("transaction_total_amount_euro"));
 			document.put("max_amount", input.getDoubleByField("max_amount"));
@@ -52,7 +52,7 @@ private OutputCollector outputCollector;
 			document.put("nb_transaction", input.getIntegerByField("nb_transaction"));
 			index="transactions";
 			type= "transaction";
-		} else if (input.getSourceComponent().equals("block-stats")) {
+		} else if (input.getSourceComponent().equals("blockStats")) {
 			document.put("foundBy", input.getStringByField("foundBy"));
 			document.put("block_reward_euro", input.getDoubleByField("block_reward_euro"));
 			document.put("block_timestamp", input.getStringByField("block_timestamp"));
